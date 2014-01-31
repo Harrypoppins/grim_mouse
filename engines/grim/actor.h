@@ -153,7 +153,7 @@ public:
 	 * @see stopWalking
 	 * @see isWalking
 	 */
-	void walkTo(const Math::Vector3d &position);
+	void walkTo(const Math::Vector3d &position, bool force_walk);
 	/**
 	 * Stops immediately the actor's walk.
 	 *
