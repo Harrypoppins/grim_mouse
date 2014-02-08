@@ -93,7 +93,8 @@ Actor::Actor() :
 		_shadowActive(false), _puckOrient(false), _talking(false), 
 		_inOverworld(false), _drawnToClean(false), _backgroundTalk(false),
 		_sortOrder(0), _haveSectorSortOrder(false), _sectorSortOrder(0),
-		_cleanBuffer(0) {
+		_cleanBuffer(0),
+		_walkBwd(false) {
 
 	// Some actors don't set walk and turn rates, so we default the
 	// _turnRate so Doug at the cat races can turn and we set the
@@ -458,8 +459,9 @@ void Actor::setRot(const Math::Angle &pitchParam, const Math::Angle &yawParam, c
 	_turning = false;
 }
 
-void Actor::setPos(const Math::Vector3d &position) {
-	_walking = false;
+void Actor::setPos(const Math::Vector3d &position, int xnum) {
+	if (xnum==0)
+		_walking = false;
 	_pos = position;
 
 	// Don't allow positions outside the sectors.
@@ -494,7 +496,7 @@ void Actor::calculateOrientation(const Math::Vector3d &pos, Math::Angle *pitch, 
 	}
 
 	Math::Matrix3 m;
-	m.buildFromTargetDir(actorForward, lookVector, actorUp, up);
+	m.buildFromTargetDir(actorForward, _walkBwd ? -lookVector : lookVector, actorUp, up);
 
 	if (_puckOrient) {
 		m.getPitchYawRoll(pitch, yaw, roll);
@@ -913,9 +915,8 @@ void Actor::setRestChore(int chore, Costume *cost) {
 	if (!cost) {
 		cost = getCurrentCostume();
 	}
-
 	_restChore = Chore(cost, chore);
-
+	
 	_restChore.playLooping(true);
 }
 
@@ -939,7 +940,7 @@ void Actor::setWalkChore(int chore, Costume *cost) {
 	if (!cost) {
 		cost = getCurrentCostume();
 	}
-
+	
 	_walkChore = Chore(cost, chore);
 }
 
@@ -1426,17 +1427,17 @@ void Actor::update(uint frameTime) {
 
 	if (_walkChore.isValid()) {
 		if (_walkedCur) {
-			if (!_walkChore.isPlaying()) {
-				_walkChore.playLooping(true);
-			}
 			if (_restChore.isPlaying()) {
-				_restChore.stop(true);
+				_restChore.stop(!_walkBwd);
+			}
+			if (!_walkChore.isPlaying()) {
+				_walkChore.playLooping(!_walkBwd);
 			}
 		} else {
 			if (_walkedLast && _walkChore.isPlaying()) {
-				_walkChore.stop(true);
+				_walkChore.stop(!_walkBwd);
 				if (!_restChore.isPlaying()) {
-					_restChore.playLooping(true);
+					_restChore.playLooping(!_walkBwd);
 				}
 			}
 		}

@@ -20,6 +20,7 @@
  *
  */
 
+#include "common/textconsole.h"
 #include "engines/grim/costume.h"
 #include "engines/grim/savegame.h"
 #include "engines/grim/textsplit.h"
@@ -68,7 +69,6 @@ void Chore::play() {
 	_hasPlayed = true;
 	_looping = false;
 	_currTime = -1;
-
 	fade(Animation::None, 0);
 }
 
@@ -77,7 +77,7 @@ void Chore::playLooping() {
 	_hasPlayed = true;
 	_looping = true;
 	_currTime = -1;
-
+	
 	fade(Animation::None, 0);
 }
 
@@ -91,7 +91,7 @@ Component *Chore::getComponentForTrack(int i) const {
 void Chore::stop() {
 	_playing = false;
 	_hasPlayed = false;
-
+	
 	for (int i = 0; i < _numTracks; i++) {
 		Component *comp = getComponentForTrack(i);
 		if (comp)
