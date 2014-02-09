@@ -20,7 +20,8 @@
  *
  */
 
-#define FORBIDDEN_SYMBOL_ALLOW_ALL
+#define USEPACKAGE
+//#define FORBIDDEN_SYMBOL_ALLOW_ALL
 
 #include <errno.h>
 
@@ -293,7 +294,6 @@ void LuaBase::setMovieTime(float movieTime) {
 	lua_settable();
 }
 
-//#define USEPACKAGE
 
 int LuaBase::dofile(const char *filename) {
 
