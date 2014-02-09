@@ -77,6 +77,7 @@ public:
     void disableAll();
     HotObject& getObject(int idx) { return _hotobject[idx]; }
     
+    void initialize();
     void okKey();
     void cancel();
     void event(const Common::Point& cursor, const Common::Event& ev, int debug);
@@ -116,7 +117,8 @@ protected:
 
     unsigned int _lastClick;
     bool _initialized;
-    Common::HashMap<Common::String,Hotspot> _hotspots;
+    typedef Common::HashMap<Common::String,Common::Array<Hotspot> > HotDict;
+    HotDict _hotspots;
     Common::Array<Hotspot> _hotspot;
     Common::String _curScene;
     Common::Array<HotObject> _hotobject;

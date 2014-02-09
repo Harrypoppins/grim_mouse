@@ -34,6 +34,7 @@
 #include "engines/grim/inputdialog.h"
 #include "engines/grim/cursor.h"
 #include "engines/grim/lua.h"
+#include "engines/grim/resource.h"
 #include "engines/grim/lua/lua.h"
 #include "graphics/pixelbuffer.h"
 #include "common/array.h"
@@ -75,6 +76,41 @@ HotspotMan::HotspotMan() : _selectMode (0), _initialized(false), _lastClick(0), 
 HotspotMan::~HotspotMan() {
 }
 
+Common::String readString(Common::SeekableReadStream* data) {
+    int len = data->readSint32LE();
+    char* buf = new char[len+1];
+    data->read(buf,len);
+    buf[len] = 0;
+    Common::String s(buf);
+    delete[] buf;
+    return s;
+}
+
+void HotspotMan::initialize() {
+    Common::SeekableReadStream *data = g_resourceloader->openNewStreamFile("set.bin");
+    int numSets = data->readSint32LE();
+    for (int i=0; i<numSets; i++) {
+        Common::String setID = readString(data);
+        Common::Array<Hotspot> setHS;
+        int numHS = data->readSint32LE();
+        for (int j=0; j<numHS; j++) {
+            Hotspot hs;
+            hs._id=readString(data);
+            hs._desc=readString(data);
+            hs._setup=data->readSint32LE();
+            hs._type=data->readSint32LE();
+            float pos[3];
+            data->read(&pos, 3*sizeof(float));
+            hs._pos = Math::Vector3d(pos[0],pos[1],pos[2]);
+            int numPoly = data->readSint32LE();
+            for (int k=0; k<numPoly; k++) {
+                int x = data->readSint32LE(), y = data->readSint32LE();
+                hs._region._pnts.push_back(Common::Point(x,y));
+            }
+        }
+    }
+}
+
 int HotspotMan::addHotspot(const Common::String& name, const Math::Vector3d& pos, const Common::String& scene) {
     Common::String id = name, desc = name;
     for (size_t i=1;i<id.size();i++) {
@@ -100,6 +136,11 @@ int HotspotMan::addHotspot(const Common::String& name, const Math::Vector3d& pos
     hs._active = false;
     _hotobject.push_back(hs);
     
+    // link to hotspots
+    for (HotDict::iterator it=_hotspots.begin(); it != _hotspots.end(); ++it) {
+        Common::String s = it->_key;
+    }
+
     return _hotobject.size() - 1;
 }
 
