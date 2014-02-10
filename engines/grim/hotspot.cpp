@@ -139,6 +139,7 @@ int HotspotMan::addHotspot(const Common::String& name, const Math::Vector3d& pos
     // link to hotspots
     for (HotDict::iterator it=_hotspots.begin(); it != _hotspots.end(); ++it) {
         Common::String s = it->_key;
+        
     }
 
     return _hotobject.size() - 1;

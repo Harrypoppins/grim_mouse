@@ -20,8 +20,8 @@
  *
  */
 
-#define USEPACKAGE
-//#define FORBIDDEN_SYMBOL_ALLOW_ALL
+//#define USEPACKAGE
+#define FORBIDDEN_SYMBOL_ALLOW_ALL
 
 #include <errno.h>
 
