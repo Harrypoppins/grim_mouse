@@ -89,6 +89,14 @@ void LuaObjects::addNil() {
 	_objects.push_back(obj);
 }
 
+void LuaObjects::add(const float* ar, int len) {
+	Obj obj;
+	obj._type = Obj::Array;
+	obj._elements = len;
+	obj._value.array = ar;
+	_objects.push_back(obj);
+}
+
 void LuaObjects::pushObjects() const {
 	for (Common::List<Obj>::const_iterator i = _objects.begin(); i != _objects.end(); ++i) {
 		const Obj &o = *i;
@@ -104,6 +112,17 @@ void LuaObjects::pushObjects() const {
 				break;
 			case Obj::String:
 				lua_pushstring(o._value.string);
+				break;
+			case Obj::Array:
+				lua_pushnumber(o._elements);
+				lua_Object tbl = lua_createtable();
+				for (int k=0; k<o._elements; k++) {
+					lua_pushobject(tbl);
+					lua_pushnumber(k);
+					lua_pushnumber(o._value.array[k]);
+					lua_settable();
+				}
+				lua_pushobject(tbl);
 				break;
 		}
 	}

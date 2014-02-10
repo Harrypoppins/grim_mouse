@@ -27,11 +27,14 @@ for file in glob.glob('*.set.hot'):
 			d.setup = int(setup)
 			tok = endp.strip().split(' ')
 			d.type = int(tok[0])
-			d.pos = [float(tok[1]),float(tok[2]),float(tok[3])]
-			d.num = int(tok[4])
+			d.numpos = int(tok[1])
+			d.pos = []
+			for i in range(npos*3):
+				d.pos.append(float(tok[2+i]))
+			d.num = int(tok[2+npos*3])
 			d.poly=[]
 			for i in range(d.num*2):
-				d.poly.append(int(tok[5+i]))
+				d.poly.append(int(tok[3+npos*3+i]))
 			data.append(d)
 		dset.append(data)
 		sname.append(set)
@@ -44,6 +47,9 @@ with open('../dists/engine-data/patches/grim_pnc/set.bin','wb') as fout:
 		for d in dset[i]:
 			writestring(fout,d.id)
 			writestring(fout,d.name)
-			fout.write(struct.pack('iifffi',d.setup,d.type,d.pos[0],d.pos[1],d.pos[2],d.num))
+			fout.write(struct.pack('iii',d.setup,d.type,d.numpos))
+			for i in d.numpos:
+				fout.write(struct.pack('f',i))
+			fout.write(struct.pack('i',d.num))
 			for i in d.poly:
 				fout.write(struct.pack('i',i))

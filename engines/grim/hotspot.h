@@ -55,10 +55,10 @@ struct HotObject {
 struct Hotspot {
 	Common::String _id, _desc;
     Polygon _region;
-    Math::Vector3d _pos;
     int _setup;
     int _type;
     int _objId;
+    Common::Array<Math::Vector3d> _path;
 };
 
 struct InventoryItem {

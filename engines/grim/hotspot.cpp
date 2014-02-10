@@ -99,9 +99,12 @@ void HotspotMan::initialize() {
             hs._desc=readString(data);
             hs._setup=data->readSint32LE();
             hs._type=data->readSint32LE();
-            float pos[3];
-            data->read(&pos, 3*sizeof(float));
-            hs._pos = Math::Vector3d(pos[0],pos[1],pos[2]);
+            int numPath = data->readSint32LE();
+            for (int k=0; k<numPath; k++) {
+                float pos[3];
+                data->read(&pos, 3*sizeof(float));
+                hs._path.push_back(Math::Vector3d(pos[0],pos[1],pos[2]));
+            }
             int numPoly = data->readSint32LE();
             for (int k=0; k<numPoly; k++) {
                 int x = data->readSint32LE(), y = data->readSint32LE();
@@ -275,15 +278,20 @@ void HotspotMan::reload(bool always) {
         
         int setup, type, num, x, y;
         char id[256], name[256];
-        float  p[3];
-        while(fscanf(fp,"%d %s \"%100[^\"]\" %d %g %g %g %d", &setup, id, name, &type, &p[0], &p[1], &p[2], &num) > 0) {
+        while(fscanf(fp,"%d %s \"%100[^\"]\" %d %d", &setup, id, name, &type, &num) > 0) {
             Hotspot hs;
             hs._id = id;
             hs._setup = setup;
             hs._desc = name;
             hs._type = type;
             hs._objId = -1;
-            hs._pos = Math::Vector3d(p[0],p[1],p[2]);
+            for (int i=0; i<num; i++) {
+                float p[3];
+                fscanf(fp,"%g %g %g",&p[0],&p[1],&p[2]);
+                Math::Vector3d v(p[0],p[1],p[2]);
+                hs._path.push_back(v);
+            }
+            fscanf(fp,"%d",&num);
             for (int i=0; i<num; i++) {
                 fscanf(fp,"%d %d", &x, &y);
                 hs._region._pnts.push_back(Common::Point(x,y));
@@ -508,14 +516,18 @@ void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int
                     hs._type >= 10 || button==0) continue;
                 if (hs._objId>=0 && !_hotobject[hs._objId]._active) continue;
                 if (hs._type == 3) {
+                    float* buf = new float[hs._path.size()*3];
                     LuaObjects objects;
-                    Math::Vector3d v = hs._pos;
                     objects.add(button);
-                    objects.add(v.x());
-                    objects.add(v.y());
-                    objects.add(v.z());
                     objects.add(doubleClick ? 1 : 0);
+                    for (int k=0; k<hs._path.size(); k++) {
+                        buf[3*k] = hs._path[k].x();
+                        buf[3*k+1] = hs._path[k].y();
+                        buf[3*k+2] = hs._path[k].z();
+                    }
+                    objects.add(buf, hs._path.size()*3);
                     LuaBase::instance()->callback("mouseWalk", objects);
+                    delete[] buf;
                     return;
                 }
 
@@ -651,11 +663,9 @@ void HotspotMan::freeClick(const Common::Point& cursor, int button, bool doubleC
             if (sector->isPointInSector(v)) {
                 LuaObjects objects;
                 objects.add(button);
-                objects.add(v.x());
-                objects.add(v.y());
-                objects.add(v.z());
                 objects.add(doubleClick ? 1 : 0);
-
+                float p[3] = {v.x(), v.y(), v.z()};
+                objects.add(p,3);
                 LuaBase::instance()->callback("mouseWalk", objects);
                 return;
             }
@@ -717,10 +727,10 @@ void HotspotMan::update() {
     for (size_t i=0; i<_hotspot.size(); i++) {
         if (_hotspot[i]._type != 4) continue;
         foreach(Actor* a,g_grim->getActiveActors()) {
-            if (a->getName()==_hotspot[i]._desc) {
+            if (a->getName()==_hotspot[i]._desc && _hotspot[i]._path.size()==1) {
                  g_grim->getCurrSet()->setupCamera();
                 int x=0,y=0;
-                Math::Vector3d trans = _hotspot[i]._pos;
+                Math::Vector3d trans = _hotspot[i]._path[0];
                 Math::Quaternion quat = a->getRotationQuat();
                 Math::Quaternion quatInv(-quat.x(),-quat.y(),-quat.z(),quat.w());
                 quatInv.toMatrix().transform(&trans, true);
