@@ -771,8 +771,6 @@ void GrimEngine::mainLoop() {
 						_opMode = (_opMode-1+3) % 3;
 		                _hotspotManager->cancel();
                         warning("set opMode %d %d",_opMode,_hotspotManager->getCtrlMode());
-                    } else if (event.kbd.keycode == Common::KEYCODE_F5) {
-                        _hotspotManager->reload(true);
                     } else if (event.kbd.keycode == Common::KEYCODE_F6) {
                         _hotspotManager->debug(1);
                     } else if (_opMode > 0 && event.kbd.keycode == Common::KEYCODE_ESCAPE) {

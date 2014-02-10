@@ -85,7 +85,6 @@ public:
     void hover(Cursor* cursor);
     void updatePerspective();
     void drawActive(int debug);    
-    void reload(bool always);
     bool restoreState(SaveGame *savedState);
     void saveState(SaveGame* savedState);
     void switchMode(int ctrlMode) { _ctrlMode = ctrlMode; }
@@ -119,7 +118,6 @@ protected:
     bool _initialized;
     typedef Common::HashMap<Common::String,Common::Array<Hotspot> > HotDict;
     HotDict _hotspots;
-    Common::Array<Hotspot> _hotspot;
     Common::String _curScene;
     Common::Array<HotObject> _hotobject;
     

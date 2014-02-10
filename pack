@@ -1,3 +1,4 @@
 #!/bin/bash
+python convert_to_bin.py
 ./mklab --grim dists/engine-data/patches/grim_pnc ~/grimdata/mouse.lab
 

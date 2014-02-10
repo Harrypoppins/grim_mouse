@@ -11,10 +11,9 @@ def writestring(fp,str):
 
 dset = []
 sname = []
-for file in glob.glob('*.set.hot'):
+for file in glob.glob('hs/*.set.hot'):
 	set = file.replace('.set.hot','')
 	with open(file,'r') as fin:
-		print (file)
 		data = []
 		for line in fin:
 			line = line.strip()
@@ -28,6 +27,7 @@ for file in glob.glob('*.set.hot'):
 			tok = endp.strip().split(' ')
 			d.type = int(tok[0])
 			d.numpos = int(tok[1])
+			npos = d.numpos
 			d.pos = []
 			for i in range(npos*3):
 				d.pos.append(float(tok[2+i]))
@@ -39,7 +39,7 @@ for file in glob.glob('*.set.hot'):
 		dset.append(data)
 		sname.append(set)
 
-with open('../dists/engine-data/patches/grim_pnc/set.bin','wb') as fout:
+with open('dists/engine-data/patches/grim_pnc/set.bin','wb') as fout:
 	fout.write(struct.pack('i',len(dset)))
 	for i in range(len(dset)):
 		writestring(fout,sname[i])
@@ -48,7 +48,7 @@ with open('../dists/engine-data/patches/grim_pnc/set.bin','wb') as fout:
 			writestring(fout,d.id)
 			writestring(fout,d.name)
 			fout.write(struct.pack('iii',d.setup,d.type,d.numpos))
-			for i in d.numpos:
+			for i in d.pos:
 				fout.write(struct.pack('f',i))
 			fout.write(struct.pack('i',d.num))
 			for i in d.poly:
