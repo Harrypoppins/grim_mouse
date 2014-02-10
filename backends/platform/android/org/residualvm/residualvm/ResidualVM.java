@@ -54,7 +54,6 @@ public abstract class ResidualVM implements SurfaceHolder.Callback, Runnable {
 	abstract protected void getDPI(float[] values);
 	abstract protected void displayMessageOnOSD(String msg);
 	abstract protected void setWindowCaption(String caption);
-	abstract protected String[] getPluginDirectories();
 	abstract protected void showVirtualKeyboard(boolean enable);
 	abstract protected String[] getSysArchives();
 
@@ -86,13 +85,15 @@ public abstract class ResidualVM implements SurfaceHolder.Callback, Runnable {
 		Log.d(LOG_TAG, String.format("surfaceChanged: %dx%d (%d)",
 										width, height, format));
 
+		// store values for the native code
+		// make sure to do it before notifying the lock
+		// as it leads to a race condition otherwise
+		setSurface(width, height);
+
 		synchronized(_sem_surface) {
 			_surface_holder = holder;
 			_sem_surface.notifyAll();
 		}
-
-		// store values for the native code
-		setSurface(width, height);
 	}
 
 	// SurfaceHolder callback
@@ -449,10 +450,6 @@ public abstract class ResidualVM implements SurfaceHolder.Callback, Runnable {
 			}
 		}
 
-		File cache_dir = ResidualVMApplication.getLastCacheDir();
-		String libname = System.mapLibraryName("residualvm");
-		File libpath = new File(cache_dir, libname);
-
-		System.load(libpath.getPath());
+		System.load("libresidualvm.so");
 	}
 }

@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.View;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -17,10 +18,72 @@ import android.view.SurfaceHolder;
 import android.view.MotionEvent;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
+import android.widget.Button;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
+
+import tv.ouya.console.api.OuyaController;
 
 import java.io.File;
 
 public class ResidualVMActivity extends Activity {
+
+private boolean isBtnsShowing = false;
+
+public View.OnClickListener optionsBtnOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+
+	if(!isBtnsShowing)
+            ((HorizontalScrollView)findViewById(R.id.btns_scrollview)).setVisibility(View.VISIBLE);
+	else
+	    ((HorizontalScrollView)findViewById(R.id.btns_scrollview)).setVisibility(View.GONE);
+
+	    isBtnsShowing = !isBtnsShowing;
+
+        }
+    };
+
+    private void emulateKeyPress(int keyCode){
+		_residualvm.pushEvent(ResidualVMEvents.JE_KEY, KeyEvent.ACTION_DOWN, keyCode, 0, 0, 0, 0);
+		_residualvm.pushEvent(ResidualVMEvents.JE_KEY, KeyEvent.ACTION_UP, keyCode, 0, 0, 0, 0);
+    }
+
+public View.OnClickListener menuBtnOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+        	emulateKeyPress(KeyEvent.KEYCODE_F1);
+        }
+    };
+
+public View.OnClickListener inventoryBtnOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+        	emulateKeyPress(KeyEvent.KEYCODE_I);
+        }
+    };
+
+public View.OnClickListener lookAtBtnOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+        	emulateKeyPress(KeyEvent.KEYCODE_E);
+        }
+    };
+
+public View.OnClickListener useBtnOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+        	emulateKeyPress(KeyEvent.KEYCODE_ENTER);
+        }
+    };
+
+public View.OnClickListener pickUpBtnOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+        	emulateKeyPress(KeyEvent.KEYCODE_P);
+        }
+    };
+
 
 	private class MyResidualVM extends ResidualVM {
 		private boolean usingSmallScreen() {
@@ -74,13 +137,6 @@ public class ResidualVMActivity extends Activity {
 		}
 
 		@Override
-		protected String[] getPluginDirectories() {
-			String[] dirs = new String[1];
-			dirs[0] = ResidualVMApplication.getLastCacheDir().getPath();
-			return dirs;
-		}
-
-		@Override
 		protected void showVirtualKeyboard(final boolean enable) {
 			runOnUiThread(new Runnable() {
 					public void run() {
@@ -107,6 +163,7 @@ public class ResidualVMActivity extends Activity {
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
 		setContentView(R.layout.main);
+		OuyaController.init(this);
 		takeKeyEvents(true);
 
 		// This is a common enough error that we should warn about it
@@ -157,7 +214,16 @@ public class ResidualVMActivity extends Activity {
 
 		_events = new ResidualVMEvents(this, _residualvm);
 
+		// On screen buttons listeners
+		((ImageView)findViewById(R.id.options)).setOnClickListener(optionsBtnOnClickListener);
+		((Button)findViewById(R.id.menu_btn)).setOnClickListener(menuBtnOnClickListener);
+		((Button)findViewById(R.id.inventory_btn)).setOnClickListener(inventoryBtnOnClickListener);
+		((Button)findViewById(R.id.use_btn)).setOnClickListener(useBtnOnClickListener);
+		((Button)findViewById(R.id.pick_up_btn)).setOnClickListener(pickUpBtnOnClickListener);
+		((Button)findViewById(R.id.look_at_btn)).setOnClickListener(lookAtBtnOnClickListener);
+
 		main_surface.setOnKeyListener(_events);
+		main_surface.setOnGenericMotionListener(_events);
 
 		_residualvm_thread = new Thread(_residualvm, "ResidualVM");
 		_residualvm_thread.start();

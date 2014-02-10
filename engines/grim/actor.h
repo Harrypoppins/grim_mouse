@@ -50,6 +50,8 @@ typedef Common::List<Plane> SectorListType;
 #define MAX_SHADOWS 5
 
 struct Shadow {
+	Shadow();
+
 	Common::String name;
 	Math::Vector3d pos;
 	SectorListType planeList;
@@ -57,6 +59,7 @@ struct Shadow {
 	int shadowMaskSize;
 	bool active;
 	bool dontNegate;
+	void *userData;
 };
 
 /**
@@ -444,7 +447,7 @@ public:
 	void setMumbleChore(int choreNumber, Costume *cost);
 	bool playLastWearChore();
 	void setLastWearChore(int choreNumber, Costume *cost);
-
+	void stopAllChores();
 	void setColormap(const char *map);
 	void pushCostume(const char *name);
 	void setCostume(const char *name);
@@ -552,6 +555,9 @@ private:
 
 	Math::Vector3d getSimplePuckVector() const;
 	void calculateOrientation(const Math::Vector3d &pos, Math::Angle *pitch, Math::Angle *yaw, Math::Angle *roll);
+
+	void getBBoxInfo(Math::Vector3d &bboxPos, Math::Vector3d &bboxSize) const;
+	bool getSphereInfo(bool adjustZ, float &size, Math::Vector3d &pos) const;
 
 	Common::String _name;
 	Common::String _setName;    // The actual current set

@@ -30,6 +30,8 @@
 #include "common/system.h"
 #include "common/config-manager.h"
 
+#if defined(USE_OPENGL) && !defined(USE_OPENGL_SHADERS)
+
 #include "graphics/surface.h"
 #include "graphics/pixelbuffer.h"
 
@@ -47,7 +49,6 @@
 #include "engines/grim/emi/modelemi.h"
 #include "engines/grim/registry.h"
 
-#ifdef USE_OPENGL
 
 #if defined (SDL_BACKEND) && defined(GL_ARB_fragment_program)
 
@@ -665,23 +666,23 @@ void GfxOpenGL::drawSprite(const Sprite *sprite) {
 	glLoadIdentity();
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
-	glTranslatef(sprite->_pos.x(), sprite->_pos.y(), sprite->_pos.z());
-
-	GLdouble modelview[16];
-	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
 
 	if (g_grim->getGameType() == GType_MONKEY4) {
-		const Math::Quaternion quat =
-			_currentActor->isInOverworld()
-			? Math::Quaternion::fromEuler(0, 0, _currentActor->getYaw())
-			: Math::Quaternion::fromEuler(0, 0, _currentActor->getRoll());
+		GLdouble modelview[16];
+		glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+		const Math::Quaternion quat = Math::Quaternion::fromEuler(0, 0, _currentActor->getYaw());
 		Math::Matrix4 act = quat.toMatrix();
 		act.transpose();
 		act(3,0) = modelview[12];
 		act(3,1) = modelview[13];
 		act(3,2) = modelview[14];
 		glLoadMatrixf(act.getData());
+		glTranslatef(sprite->_pos.x(), sprite->_pos.y(), sprite->_pos.z());
 	} else {
+		glTranslatef(sprite->_pos.x(), sprite->_pos.y(), sprite->_pos.z());
+		GLdouble modelview[16];
+		glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+
 		// We want screen-aligned sprites so reset the rotation part of the matrix.
 		for (int i = 0; i < 3; i++) {
 			for (int j = 0; j < 3; j++) {
@@ -702,8 +703,8 @@ void GfxOpenGL::drawSprite(const Sprite *sprite) {
 	if (g_grim->getGameType() == GType_MONKEY4) {
 		glDepthMask(GL_FALSE);
 
-		float halfWidth = (sprite->_width / 2) * _scaleW;
-		float halfHeight = (sprite->_height / 2) * _scaleH;
+		float halfWidth = sprite->_width / 2;
+		float halfHeight = sprite->_height / 2;
 
 		glBegin(GL_POLYGON);
 		glColor4f(1.0f, 1.0f, 1.0f, _alpha);
@@ -720,8 +721,8 @@ void GfxOpenGL::drawSprite(const Sprite *sprite) {
 	} else {
 		// In Grim, the bottom edge of the sprite is at y=0 and
 		// the texture is flipped along the X-axis.
-		float halfWidth = (sprite->_width / 2) * _scaleW;
-		float height = sprite->_height * _scaleH;
+		float halfWidth = sprite->_width / 2;
+		float height = sprite->_height;
 
 		glBegin(GL_POLYGON);
 		glTexCoord2f(0.0f, 1.0f);

@@ -106,7 +106,7 @@ done
 #
 #ResidualVM defaults: mpeg2=auto, faad=no, opengles=no, vorbis=no, tremor=no
 # mt32emu=no, translation=no, flac=no, seq_midi=no, snd_io=no, timidity=no, png=no
-# theoradec=no, fluidsynth=no, opengles2=no, eventrec=no, jpeg=no
+# theoradec=no, fluidsynth=no, opengles2=no, eventrec=no, jpeg=auto
 #
 # Default lib behaviour yes/no/auto
 _vorbis=no
@@ -121,7 +121,7 @@ _timidity=no
 _zlib=auto
 _mpeg2=auto
 _sparkle=auto
-_jpeg=no
+_jpeg=auto
 _png=no
 _theoradec=no
 _faad=no
@@ -129,9 +129,10 @@ _fluidsynth=no
 _opengl=auto
 _opengles=no
 _opengles2=no
+_opengl_shaders=no
 _readline=auto
 _freetype2=auto
-_taskbar=yes
+_taskbar=auto
 _updates=no
 _libunity=auto
 # Default option behavior yes/no
@@ -894,7 +895,7 @@ Optional Features:
   --enable-verbose-build   enable regular echoing of commands during build
                            process
   --disable-bink           don't build with Bink video support
-  --enable-safedisk        enable SafeDisc decryption for Myst III
+  --enable-safedisc        enable SafeDisc decryption for Myst III
 
 Optional Libraries:
   --with-alsa-prefix=DIR   Prefix where alsa is installed (optional)
@@ -920,6 +921,7 @@ Optional Libraries:
   --enable-mpeg2           enable mpeg2 codec for cutscenes [autodetect]
 
   --disable-opengl         disable OpenGL (ES) support [autodetect]
+  --enable-opengl-shaders  enable use of modern OpenGL with shaders
 
   --with-jpeg-prefix=DIR   Prefix where libjpeg is installed (optional)
   --disable-jpeg           disable JPEG decoder [autodetect]
@@ -1025,6 +1027,8 @@ for ac_option in $@; do
 	--disable-libunity)       _libunity=no    ;;
 	--enable-opengl)          _opengl=yes     ;;
 	--disable-opengl)         _opengl=no      ;;
+	--enable-opengl-shaders)  _opengl_shaders=yes     ;; #ResidualVM specific option
+	--disable-opengl-shaders) _opengl_shaders=no      ;; #ResidualVM specific option
 	--enable-bink)            _bink=yes       ;;
 	--disable-bink)           _bink=no        ;;
 	--enable-safedisc)        _safedisc=yes   ;; #ResidualVM specific option
@@ -1289,7 +1293,7 @@ ds)
 gamecube)
 	_host_os=gamecube
 	_host_cpu=ppc
-	_host_alias=powerpc-gekko
+	_host_alias=powerpc-eabi
 	;;
 gp2x)
 	_host_os=gph-linux
@@ -1412,7 +1416,7 @@ webos)
 wii)
 	_host_os=wii
 	_host_cpu=ppc
-	_host_alias=powerpc-gekko
+	_host_alias=powerpc-eabi
 	;;
 wince)
 	_host_os=wince
@@ -1505,7 +1509,7 @@ android)
 	# ResidualVM specific start ->
 	if test ! -d android-toolchain; then
 		echo "Installing Android toolchain to build directory..."
-		"$ANDROID_NDK/build/tools/make-standalone-toolchain.sh" --platform=android-8 --install-dir=android-toolchain
+		"$ANDROID_NDK/build/tools/make-standalone-toolchain.sh" --platform=android-9 --install-dir=android-toolchain
 	else
 		echo "Android toolchain already installed."
 	fi
@@ -2040,22 +2044,25 @@ case $_host_os in
 				CXXFLAGS="$CXXFLAGS -march=armv5te"
 				CXXFLAGS="$CXXFLAGS -mtune=xscale"
 				CXXFLAGS="$CXXFLAGS -msoft-float"
+				ABI="armeabi"
 				;;
 			android-v7a)
 				CXXFLAGS="$CXXFLAGS -march=armv7-a"
 				CXXFLAGS="$CXXFLAGS -mfloat-abi=softfp"
 				CXXFLAGS="$CXXFLAGS -mfpu=vfp"
 				LDFLAGS="$LDFLAGS -Wl,--fix-cortex-a8"
+				ABI="armeabi-v7a"
 				;;
 			ouya)
 				CXXFLAGS="$CXXFLAGS -march=armv7-a"
 				CXXFLAGS="$CXXFLAGS -mtune=cortex-a9"
 				CXXFLAGS="$CXXFLAGS -mfloat-abi=softfp"
 				CXXFLAGS="$CXXFLAGS -mfpu=neon"
+				ABI="armeabi-v7a"
 				;;
 		esac
 		# ResidualVM use newer NDK
-		CXXFLAGS="$CXXFLAGS --sysroot=$ANDROID_NDK/platforms/android-8/arch-arm"
+		CXXFLAGS="$CXXFLAGS --sysroot=$ANDROID_NDK/platforms/android-9/arch-arm"
 		CXXFLAGS="$CXXFLAGS -fpic"
 		CXXFLAGS="$CXXFLAGS -ffunction-sections"
 		CXXFLAGS="$CXXFLAGS -funwind-tables"
@@ -2077,8 +2084,10 @@ case $_host_os in
 		# supress 'mangling of 'va_list' has changed in GCC 4.4'
 		CXXFLAGS="$CXXFLAGS -Wno-psabi"
 		# ResidualVM use newer NDK
-		LDFLAGS="$LDFLAGS --sysroot=$ANDROID_NDK/platforms/android-8/arch-arm"
+		LDFLAGS="$LDFLAGS --sysroot=$ANDROID_NDK/platforms/android-9/arch-arm"
 		LDFLAGS="$LDFLAGS -mthumb-interwork"
+		LDFLAGS="$LDFLAGS -L$ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/`$CXX -dumpversion`/libs/$ABI/"
+		LIBS="$LIBS -lsupc++"
 		add_line_to_config_mk "ANDROID_SDK = $ANDROID_SDK"
 		_seq_midi=no
 		;;
@@ -2419,6 +2428,8 @@ if test -n "$_host"; then
 			CXXFLAGS="$CXXFLAGS -fschedule-insns2"
 			CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
 			CXXFLAGS="$CXXFLAGS -fdelete-null-pointer-checks"
+			# no-delayed-branch is a workaround for GCC bug #42841 - "SH: Assembler complains pcrel too far."
+			CXXFLAGS="$CXXFLAGS -fno-delayed-branch"
 			_backend="dc"
 			_build_scalers=no
 			_mad=yes
@@ -2679,7 +2690,6 @@ if test -n "$_host"; then
 			_backend="tizen"
 			_port_mk="backends/platform/tizen/tizen.mk"
 			_arm_asm=yes
-			_taskbar=no
 			_build_scalers=no
 			_seq_midi=no
 			_mt32emu=no
@@ -3666,6 +3676,25 @@ fi
 if test "$_readline" = yes ; then
 	LIBS="$LIBS $READLINE_LIBS $_READLINE_LIBS"
 	INCLUDES="$INCLUDES $READLINE_CFLAGS"
+
+	#
+	# Check the type of rl_completion_entry_function.
+	# It can be int(*)(const char *, int) or char *(*)(const char *, int).
+	#
+	cat > $TMPC << EOF
+#include <stdio.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+
+int readline_completionFunction(const char *, int);
+
+int main(void) {
+	char *x = readline("");
+	rl_completion_entry_function = &readline_completionFunction;
+}
+EOF
+	cc_check -c && add_line_to_config_h '#define USE_READLINE_INT_COMPLETION'
+
 fi
 define_in_config_h_if_yes "$_readline" 'USE_READLINE'
 
@@ -3704,7 +3733,7 @@ if test "$_libunity" = yes ; then
 	LIBS="$LIBS $LIBUNITY_LIBS"
 	INCLUDES="$INCLUDES $LIBUNITY_CFLAGS"
 fi
-define_in_config_h_if_yes "$_libunity" 'USE_TASKBAR_UNITY'
+define_in_config_h_if_yes "$_libunity" 'USE_UNITY'
 fi
 echo "$_libunity"
 
@@ -3751,6 +3780,7 @@ echocheck "FreeType2"
 echo "$_freetype2"
 
 define_in_config_if_yes "$_freetype2" "USE_FREETYPE2"
+
 
 #
 # Check for OpenGL (ES)
@@ -3844,6 +3874,15 @@ EOF
 	if test "$_opengl" = yes ; then
 		LIBS="$LIBS $OPENGL_LIBS"
 		INCLUDES="$INCLUDES $OPENGL_CFLAGS"
+# ResidualVM specific:
+		if test "$_opengl_shaders" = yes ; then
+			if test "$_opengles2" = no ; then
+				LIBS="$LIBS `pkg-config --libs glew`"
+				INCLUDES="$INCLUDES `pkg-config --cflags glew`"
+			fi
+		fi
+	else
+		_opengl_shaders="no"
 	fi
 fi
 
@@ -3854,6 +3893,7 @@ case $_host_os in
 		_opengles=yes
 		;;
 	android) # ResidualVM specific case:
+		_opengl=yes
 		_opengles2=yes
 		LDFLAGS="$LDFLAGS -Landroid-toolchain/sysroot/usr/lib"
 		LDFLAGS="$LDFLAGS -lGLESv2"
@@ -3873,6 +3913,7 @@ define_in_config_if_yes "$_opengl" "USE_OPENGL"
 define_in_config_if_yes "$_opengles" "USE_GLES"
 # ResidualVM specific:
 define_in_config_if_yes "$_opengles2" "USE_GLES2"
+define_in_config_if_yes "$_opengl_shaders" "USE_OPENGL_SHADERS"
 
 
 #
@@ -3980,24 +4021,27 @@ fi
 # Check whether to build taskbar integration support
 #
 echo_n "Building taskbar integration support... "
-define_in_config_if_yes $_taskbar 'USE_TASKBAR'
-if test "$_taskbar" = yes; then
+if test "$_taskbar" = "no"; then
+	echo "no"
+else
 	case $_host_os in
 	mingw*)
 		LIBS="$LIBS -lole32 -luuid"
 		echo "win32"
+		_taskbar=yes
 		;;
 	*)
 		if test "$_libunity" = yes; then
 			echo "unity"
+			_taskbar=yes
 		else
-			echo "$_taskbar"
+			echo "no"
+			_taskbar=no
 		fi
 		;;
 	esac
-else
-	echo "$_taskbar"
 fi
+define_in_config_if_yes $_taskbar 'USE_TASKBAR'
 
 #
 # Check whether to build Bink video support
@@ -4170,7 +4214,7 @@ case $_backend in
 		# -lgcc is carefully placed here - we want to catch
 		# all toolchain symbols in *our* libraries rather
 		# than pick up anything unhygenic from the Android libs.
-		LIBS="-Wl,-Bstatic $static_libs -Wl,-Bdynamic -lgcc $system_libs -llog"
+		LIBS="-Wl,-Bstatic $static_libs -Wl,-Bdynamic -lgcc $system_libs -llog -landroid"
 		# ResidualVM specific if:
 		if test "$_opengles2" != "yes" ; then
 			LIBS="$LIBS -lGLESv1_CM"

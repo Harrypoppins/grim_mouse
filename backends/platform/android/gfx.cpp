@@ -281,6 +281,10 @@ void OSystem_Android::initSize(uint width, uint height,
 #else
 	_game_texture->allocBuffer(width, height);
 #endif
+#ifdef USE_GLES2
+	_frame_buffer = new Graphics::FrameBuffer(_game_texture->getTextureName(), _game_texture->width(), _game_texture->height(), _game_texture->texWidth(), _game_texture->texHeight());
+	_frame_buffer->attach();
+#endif
 
 	updateScreenRect();
 	updateEventScale();
@@ -342,8 +346,6 @@ void OSystem_Android::updateScreenRect() {
 	uint16 h = _game_texture->height();
 
 	if (w && h && !_fullscreen) {
-		if (_ar_correction && w == 320 && h == 200)
-			h = 240;
 
 		float dpi[2];
 		JNI::getDPI(dpi);
@@ -367,8 +369,6 @@ void OSystem_Android::updateScreenRect() {
 			rect.moveTo((_egl_surface_height - rect.height()) / 2, 0);
 		}
 	}
-
-	glScissor(rect.left, rect.top, rect.width(), rect.height());
 
 	_game_texture->setDrawRect(rect);
 }
@@ -478,26 +478,14 @@ void OSystem_Android::updateScreen() {
 
 		_force_redraw = false;
 
-		// clear pointer leftovers in dead areas
-		// also, HTC's GLES drivers are made of fail and don't preserve the buffer
-		// ( http://www.khronos.org/registry/egl/specs/EGLTechNote0001.html )
-		if ((_show_overlay || _htc_fail) && !_fullscreen)
-			clearScreen(kClear);
-
-// TODO: Do we have engines that use this?
-#if 0
-		if (_shake_offset != 0 ||
-				(!_focus_rect.isEmpty() &&
-				!Common::Rect(_game_texture->width(),
-								_game_texture->height()).contains(_focus_rect))) {
-			// These are the only cases where _game_texture doesn't
-			// cover the entire screen.
-			clearScreen(kClear);
-
-			// Move everything up by _shake_offset (game) pixels
-			GLCALL(glTranslatex(0, -_shake_offset << 16, 0));
+		if (_frame_buffer) {
+			_frame_buffer->detach();
+			glViewport(0,0, _egl_surface_width, _egl_surface_height);
 		}
-#endif
+
+		// clear pointer leftovers in dead areas
+		if ((_show_overlay) && !_fullscreen)
+			clearScreen(kClear);
 
 	// TODO this doesnt work on those sucky drivers, do it differently
 	//	if (_show_overlay)
@@ -567,6 +555,8 @@ void OSystem_Android::updateScreen() {
 	if (!JNI::swapBuffers())
 		LOGW("swapBuffers failed: 0x%x", glGetError());
 
+	if (_frame_buffer)
+		_frame_buffer->attach();
 }
 
 void OSystem_Android::drawVirtControls() {
@@ -597,12 +587,7 @@ void OSystem_Android::unlockScreen() {
 }
 
 void OSystem_Android::setShakePos(int shake_offset) {
-	ENTER("%d", shake_offset);
-
-	if (_shake_offset != shake_offset) {
-		_shake_offset = shake_offset;
-		_force_redraw = true;
-	}
+	/* not used in any engine */
 }
 
 void OSystem_Android::fillScreen(uint32 col) {

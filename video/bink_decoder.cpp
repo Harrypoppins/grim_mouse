@@ -63,7 +63,6 @@ namespace Video {
 
 BinkDecoder::BinkDecoder() {
 	_bink = 0;
-	_selectedAudioTrack = 0; // ResidualVM-specific
 }
 
 BinkDecoder::~BinkDecoder() {
@@ -186,19 +185,16 @@ void BinkDecoder::readNextPacket() {
 			uint32 audioPacketStart = _bink->pos();
 			uint32 audioPacketEnd   = _bink->pos() + audioPacketLength;
 
-			// ResidualVM specific if:
-			if (i == _selectedAudioTrack) {
-				//                  Number of samples in bytes
-				audio.sampleCount = _bink->readUint32LE() / (2 * audio.channels);
+			//                  Number of samples in bytes
+			audio.sampleCount = _bink->readUint32LE() / (2 * audio.channels);
 
-				audio.bits = new Common::BitStream32LELSB(new Common::SeekableSubReadStream(_bink,
-						audioPacketStart + 4, audioPacketEnd), true);
+			audio.bits = new Common::BitStream32LELSB(new Common::SeekableSubReadStream(_bink,
+					audioPacketStart + 4, audioPacketEnd), true);
 
-				audioTrack->decodePacket();
+			audioTrack->decodePacket();
 
-				delete audio.bits;
-				audio.bits = 0;
-			}
+			delete audio.bits;
+			audio.bits = 0;
 
 			_bink->seek(audioPacketEnd);
 
@@ -216,6 +212,16 @@ void BinkDecoder::readNextPacket() {
 
 	delete frame.bits;
 	frame.bits = 0;
+}
+
+VideoDecoder::AudioTrack *BinkDecoder::getAudioTrack(int index) {
+	// Bink audio track indexes are relative to the first audio track
+	Track *track = getTrack(index + 1);
+
+	if (!track || track->getTrackType() != Track::kTrackTypeAudio)
+		return 0;
+
+	return (AudioTrack *)track;
 }
 
 BinkDecoder::VideoFrame::VideoFrame() : bits(0) {
@@ -326,17 +332,10 @@ BinkDecoder::BinkVideoTrack::~BinkVideoTrack() {
 }
 
 // ResidualVM-specific function
-void BinkDecoder::setAudioTrack(uint32 track) {
-	if (_audioTracks.size() > 1 && track < _audioTracks.size())
-		_selectedAudioTrack = track;
-}
-
-// ResidualVM-specific function
-bool BinkDecoder::seek(const Audio::Timestamp &time) {
-	VideoDecoder::seek(time);
-	uint32 frame = getCurFrame();
-
+bool BinkDecoder::seekIntern(const Audio::Timestamp &time) {
 	BinkVideoTrack *videoTrack = (BinkVideoTrack *)getTrack(0);
+
+	uint32 frame = videoTrack->getFrameAtTime(time);
 
 	// Track down the keyframe
 	uint32 keyFrame = findKeyFrame(frame);
@@ -350,11 +349,9 @@ bool BinkDecoder::seek(const Audio::Timestamp &time) {
 
 	// Skip decoded audio between the keyframe and the target frame
 	for (uint32 i = 0; i < _audioTracks.size(); i++) {
-		if (i == _selectedAudioTrack) {
-			BinkAudioTrack *audioTrack = (BinkAudioTrack *)getTrack(i + 1);
-			Audio::Timestamp delay = videoTrack->getFrameTime(frame - 1) - videoTrack->getFrameTime(keyFrame);
-			audioTrack->skipSamples(delay);
-		}
+		BinkAudioTrack *audioTrack = (BinkAudioTrack *)getTrack(i + 1);
+		Audio::Timestamp delay = videoTrack->getFrameTime(frame - 1) - videoTrack->getFrameTime(keyFrame);
+		audioTrack->skipSamples(delay);
 	}
 
 	return true;
@@ -371,12 +368,6 @@ uint32 BinkDecoder::findKeyFrame(uint32 frame) const {
 
 	// If none found, we'll assume the requested frame is a key frame
 	return frame;
-}
-
-// ResidualVM-specific function
-bool BinkDecoder::BinkVideoTrack::seek(const Audio::Timestamp &time) {
-	_curFrame = getFrameAtTime(time);
-	return true;
 }
 
 // ResidualVM-specific function

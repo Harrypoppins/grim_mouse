@@ -41,10 +41,15 @@
 #include "engines/grim/emi/costumeemi.h"
 #include "engines/grim/emi/skeleton.h"
 #include "engines/grim/emi/costume/emiskel_component.h"
+#include "engines/grim/emi/modelemi.h"
 
 #include "common/foreach.h"
 
 namespace Grim {
+
+Shadow::Shadow() :
+		shadowMask(NULL), shadowMaskSize(0), active(false), dontNegate(false), userData(NULL) {
+}
 
 static int animTurn(float turnAmt, const Math::Angle &dest, Math::Angle *cur) {
 	Math::Angle d = dest - *cur;
@@ -104,12 +109,6 @@ Actor::Actor() :
 
 	_activeShadowSlot = -1;
 	_shadowArray = new Shadow[5];
-	for (int i = 0; i < MAX_SHADOWS; i++) {
-		_shadowArray[i].active = false;
-		_shadowArray[i].dontNegate = false;
-		_shadowArray[i].shadowMask = NULL;
-		_shadowArray[i].shadowMaskSize = 0;
-	}
 }
 
 Actor::~Actor() {
@@ -721,11 +720,11 @@ void Actor::moveTo(const Math::Vector3d &pos) {
 		mode = CollisionSphere;
 	}
 
-	Math::Vector3d v = pos - _pos;
+	Math::Vector3d moveVec = pos - _pos;
 	foreach (Actor *a, g_grim->getActiveActors()) {
-		handleCollisionWith(a, mode, &v);
+		handleCollisionWith(a, mode, &moveVec);
 	}
-	_pos += v;
+	_pos += moveVec;
 }
 
 void Actor::walkForward() {
@@ -1021,6 +1020,12 @@ bool Actor::playLastWearChore() {
 void Actor::setLastWearChore(int chore, Costume *cost) {
 	if (! _costumeStack.empty() && cost == _costumeStack.back()) {
 		_lastWearChore = Chore(cost, chore);
+	}
+}
+
+void Actor::stopAllChores() {
+	for (Common::List<Costume *>::iterator i = _costumeStack.begin(); i != _costumeStack.end(); ++i) {
+		(*i)->stopChores();
 	}
 }
 
@@ -1807,9 +1812,11 @@ Math::Vector3d Actor::handleCollisionTo(const Math::Vector3d &from, const Math::
 	}
 
 	Math::Vector3d p = pos;
+	Math::Vector3d moveVec = pos - _pos;
 	foreach (Actor *a, Actor::getPool()) {
 		if (a != this && a->isInSet(_setName) && a->isVisible()) {
 			p = a->getTangentPos(from, p);
+			handleCollisionWith(a, _collisionMode, &moveVec);
 		}
 	}
 	return p;
@@ -1820,10 +1827,10 @@ Math::Vector3d Actor::getTangentPos(const Math::Vector3d &pos, const Math::Vecto
 		return dest;
 	}
 
-	Model *model = getCurrentCostume()->getModel();
-	Math::Vector3d p = _pos + model->_insertOffset;
-	float size = model->_radius * _collisionScale;
-
+	Math::Vector3d p;
+	float size;
+	if (!getSphereInfo(false, size, p))
+		return dest;
 	Math::Vector2d p1(pos.x(), pos.y());
 	Math::Vector2d p2(dest.x(), dest.y());
 	Math::Segment2d segment(p1, p2);
@@ -1850,6 +1857,48 @@ Math::Vector3d Actor::getTangentPos(const Math::Vector3d &pos, const Math::Vecto
 	return dest;
 }
 
+void Actor::getBBoxInfo(Math::Vector3d &bboxPos, Math::Vector3d &bboxSize) const {
+	if (g_grim->getGameType() == GType_MONKEY4) {
+		bboxPos = Math::Vector3d(0, 0, 0);
+		bboxSize = Math::Vector3d(0, 0, 0);
+	} else {
+		Model *model = getCurrentCostume()->getModel();
+		bboxPos = model->_bboxPos;
+		bboxSize = model->_bboxSize;
+	}
+}
+
+bool Actor::getSphereInfo(bool adjustZ, float &size, Math::Vector3d &p) const {
+	if (g_grim->getGameType() == GType_MONKEY4) {
+		EMICostume *costume = static_cast<EMICostume *>(getCurrentCostume());
+		if (!costume) {
+			warning("Actor::getSphereInfo: actor \"%s\" has no costume", getName().c_str());
+			return false;
+		}
+		EMIChore *chore = costume->_wearChore;
+		if (!chore) {
+			warning("Actor::getSphereInfo: actor \"%s\" has no chore", getName().c_str());
+			return false;
+		}
+		EMIModel *model = chore->getMesh()->_obj;
+		assert(model);
+		p = _pos + *(model->_center);
+		// pre-scale factor of 0.8 was guessed by comparing with the original game
+		size = model->_radius * _collisionScale * 0.8f;
+	} else {
+		Model *model = getCurrentCostume()->getModel();
+		assert(model);
+
+		p = _pos + model->_insertOffset;
+		// center the sphere on the model center.
+		if (adjustZ) {
+			p.z() += model->_bboxSize.z() / 2.f;
+		}
+		size = model->_radius * _collisionScale;
+	}
+	return true;
+}
+
 bool Actor::handleCollisionWith(Actor *actor, CollisionMode mode, Math::Vector3d *vec) const {
 	if (actor->_collisionMode == CollisionOff || actor == this) {
 		return false;
@@ -1859,25 +1908,21 @@ bool Actor::handleCollisionWith(Actor *actor, CollisionMode mode, Math::Vector3d
 		return false;
 	}
 
-	Model *model1 = getCurrentCostume()->getModel();
-	Model *model2 = actor->getCurrentCostume()->getModel();
-
-	Math::Vector3d p1 = _pos + model1->_insertOffset;
-	Math::Vector3d p2 = actor->_pos + model2->_insertOffset;
-
-	float size1 = model1->_radius * _collisionScale;
-	float size2 = model2->_radius * actor->_collisionScale;
+	Math::Vector3d p1, p2;
+	float size1, size2;
+	// you may ask: why center the sphere of the first actor only (by setting adjustZ to true)?
+	// because it seems the original does so.
+	// if you change this code test this places: the rocks in lb and bv (both when booting directly in the
+	// set and when coming in from another one) and the poles in xb.
+	if (!this->getSphereInfo(true, size1, p1) || 
+	    !actor->getSphereInfo(false, size2, p2)) {
+		return false;
+	}
 
 	CollisionMode mode1 = mode;
 	CollisionMode mode2 = actor->_collisionMode;
 
 	if (mode1 == CollisionSphere && mode2 == CollisionSphere) {
-		// center the sphere on the model center.
-		p1.z() += model1->_bboxSize.z() / 2.f;
-		// you may ask: why center the sphere of the first actor only? because it seems the original does so.
-		// if you change this code test this places: the rocks in lb and bv (both when booting directly in the
-		// set and when coming in from another one) and the poles in xb.
-
 		Math::Vector3d pos = p1 + *vec;
 		float distance = (pos - p2).getMagnitude();
 		if (distance < size1 + size2) {
@@ -1895,6 +1940,13 @@ bool Actor::handleCollisionWith(Actor *actor, CollisionMode mode, Math::Vector3d
 		warning("Collision between box and box not implemented!");
 		return false;
 	} else {
+		Math::Vector3d bboxSize1, bboxSize2;
+		Math::Vector3d bboxPos1, bboxPos2;
+
+		// get bboxSize and bboxPos for the current and the colliding actor
+		this->getBBoxInfo(bboxPos1, bboxSize1);
+		actor->getBBoxInfo(bboxPos2, bboxSize2);
+
 		Math::Rect2d rect;
 
 		Math::Vector3d bboxPos;
@@ -1909,8 +1961,8 @@ bool Actor::handleCollisionWith(Actor *actor, CollisionMode mode, Math::Vector3d
 
 		if (mode1 == CollisionBox) {
 			pos = p1 + *vec;
-			bboxPos = pos + model1->_bboxPos;
-			size = model1->_bboxSize;
+			bboxPos = pos + bboxPos1;
+			size =  bboxSize1;
 			scale = _collisionScale;
 			yaw = _yaw;
 
@@ -1920,8 +1972,8 @@ bool Actor::handleCollisionWith(Actor *actor, CollisionMode mode, Math::Vector3d
 			radius = size2;
 		} else {
 			pos = p2;
-			bboxPos = p2 + model2->_bboxPos;
-			size = model2->_bboxSize;
+			bboxPos = p2  + bboxPos2;
+			size = bboxSize2;
 			scale = actor->_collisionScale;
 			yaw = actor->_yaw;
 
@@ -2024,6 +2076,11 @@ void Actor::collisionHandlerCallback(Actor *other) const {
 	objects.add(other);
 
 	LuaBase::instance()->callback("collisionHandler", objects);
+
+	LuaObjects objects2;
+	objects2.add(other);
+	objects2.add(this);
+	LuaBase::instance()->callback("collisionHandler", objects2);
 }
 
 Math::Vector3d Actor::getWorldPos() const {
@@ -2078,12 +2135,7 @@ Math::Quaternion Actor::getRotationQuat() const {
 int Actor::getSortOrder() const {
 	if (_attachedActor != 0) {
 		Actor *attachedActor = Actor::getPool().getObject(_attachedActor);
-
-		// FIXME: The + 1 here and in getEffectiveSortOrder is just a guess.
-		// Without it it makes some attachments render on top of their owner.
-		// Theoritically it could cause an issue if the actor is close to the
-		// edge of a sort order boundry.
-		return attachedActor->getSortOrder() + 1;
+		return attachedActor->getSortOrder();
 	}
 	return _sortOrder;
 }
@@ -2091,7 +2143,7 @@ int Actor::getSortOrder() const {
 int Actor::getEffectiveSortOrder() const {
 	if (_attachedActor != 0) {
 		Actor *attachedActor = Actor::getPool().getObject(_attachedActor);
-		return attachedActor->getEffectiveSortOrder() + 1;
+		return attachedActor->getEffectiveSortOrder();
 	}
 	return _haveSectorSortOrder ? _sectorSortOrder : getSortOrder();
 }
