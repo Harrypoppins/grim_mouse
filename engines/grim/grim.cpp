@@ -302,6 +302,7 @@ Common::Error GrimEngine::run() {
 	
 	_cursor = new Cursor(this);
     _hotspotManager = new HotspotMan;
+    _hotspotManager->initialize();
         
 	Bitmap *splash_bm = NULL;
 	if (!(_gameFlags & ADGF_DEMO) && getGameType() == GType_GRIM)

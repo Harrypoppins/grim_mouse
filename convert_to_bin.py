@@ -12,7 +12,7 @@ def writestring(fp,str):
 dset = []
 sname = []
 for file in glob.glob('hs/*.set.hot'):
-	set = file.replace('.set.hot','')
+	set = file.replace('.hot','').replace('hs/','')
 	with open(file,'r') as fin:
 		data = []
 		for line in fin:

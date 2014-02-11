@@ -87,11 +87,12 @@ Common::String readString(Common::SeekableReadStream* data) {
 }
 
 void HotspotMan::initialize() {
+    _hotspots.clear();
     Common::SeekableReadStream *data = g_resourceloader->openNewStreamFile("set.bin");
     int numSets = data->readSint32LE();
     for (int i=0; i<numSets; i++) {
         Common::String setID = readString(data);
-        Common::Array<Hotspot> setHS;
+        _hotspots[setID] = Common::Array<Hotspot>();
         int numHS = data->readSint32LE();
         for (int j=0; j<numHS; j++) {
             Hotspot hs;
@@ -99,6 +100,7 @@ void HotspotMan::initialize() {
             hs._desc=readString(data);
             hs._setup=data->readSint32LE();
             hs._type=data->readSint32LE();
+            hs._objId=-1;
             int numPath = data->readSint32LE();
             for (int k=0; k<numPath; k++) {
                 float pos[3];
@@ -110,6 +112,7 @@ void HotspotMan::initialize() {
                 int x = data->readSint32LE(), y = data->readSint32LE();
                 hs._region._pnts.push_back(Common::Point(x,y));
             }
+            _hotspots[setID].push_back(hs);
         }
     }
     _initialized = true;
@@ -260,13 +263,14 @@ void HotspotMan::notifyWalkOut() {
 
 void HotspotMan::debug(int num) {
     for (size_t i=0; i<_hotobject.size(); i++) {
+        if (!_hotobject[i]._active) continue;
         warning("hobj %c %s",_hotobject[i]._active ? 'A':'D',(_hotobject[i]._id + "/" + _hotobject[i]._desc).c_str());
     }    
-    /*
-    for (size_t i=0; i<_hotspot.size(); i++) {
-        char c = (_hotspot[i]._objId>=0 && _hotobject[_hotspot[i]._objId]._active) ? 'A' : 'D';
-        warning("hspt %c %s",c,(_hotspot[i]._id + "/" + _hotspot[i]._desc).c_str());
-    }  */  
+    Common::Array<Hotspot>& hotspots = _hotspots[g_grim->getCurrSet()->getName()];
+    for (size_t i=0; i<hotspots.size(); i++) {
+        char c = (hotspots[i]._objId>=0 && _hotobject[hotspots[i]._objId]._active) ? 'A' : 'D';
+        warning("hspt %c %s",c,(hotspots[i]._id + "/" + hotspots[i]._desc).c_str());
+    }   
 }
 
 /*
@@ -438,8 +442,6 @@ double line_line_dist(const Math::Vector3d& x0, const Math::Vector3d& x1,
 }
 
 void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int debug) {
-    if (!_initialized)
-        initialize();
     bool climbing = lua_getnumber(LuaBase::instance()->queryVariable("system.currentActor.is_climbing")) != 0;
 
     int button = 0;
