@@ -193,6 +193,7 @@ public:
 	void debugLua(const Common::String &str);
     
     inline HotspotMan* getHotspotMan() { return _hotspotManager; }
+    inline Cursor* getCursor() { return _cursor; }
 
 protected:
 	virtual void pauseEngineIntern(bool pause);

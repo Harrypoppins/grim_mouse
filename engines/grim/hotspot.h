@@ -78,11 +78,11 @@ public:
     HotObject& getObject(int idx) { return _hotobject[idx]; }
     
     void initialize();
-    void okKey();
+    void okKey(bool shift);
     void cancel();
     void event(const Common::Point& cursor, const Common::Event& ev, int debug);
-    void getName(Cursor* cursor);
-    void hover(Cursor* cursor);
+    void getName(const Common::Point& cursor);
+    void hover(const Common::Point& cursor);
     void updatePerspective();
     void drawActive(int debug);    
     bool restoreState(SaveGame *savedState);
@@ -97,8 +97,9 @@ public:
     void updateHotspot(const Common::String& id, const Math::Vector3d& pos, int vis);
     int getCtrlMode() { return _ctrlMode; }
     void setAxis(const Math::Vector3d& a, float offset) { _axis = a; _offset=offset; }
+    void cutSceneMode(int mode);
 protected:
-    void append_hotspot(const Common::String& id, const Common::String& name, int type, const Math::Vector3d& v);
+    void append_hotspot(const Common::String& id, const Common::String& name, int type);
     int inBox(const Common::Point& p);
     void freeClick(const Common::Point& cursor, int button, bool doubleClick, bool climbing);
 
@@ -120,11 +121,14 @@ protected:
     HotDict _hotspots;
     Common::String _curScene;
     Common::Array<HotObject> _hotobject;
+    Common::Point _lastCursor;
+    int _cutScene;
     
     // hotspot editing
     int _selectMode, _lastSetup;
     Polygon _selectPoly;
-    Common::String _lastName;        
+    Common::String _lastName;  
+    Common::Array<Math::Vector3d> _selectPath;      
 };
 
 } /* namespace  */

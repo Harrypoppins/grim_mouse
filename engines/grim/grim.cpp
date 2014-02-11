@@ -734,7 +734,7 @@ void GrimEngine::mainLoop() {
 			Common::EventType type = event.type;
 			if (type == Common::EVENT_MOUSEMOVE) {
                 _cursor->updatePosition(event.mouse);
-                _hotspotManager->hover(_cursor);
+                _hotspotManager->hover(_cursor->getPosition());
             } else if (type == Common::EVENT_MBUTTONDOWN || 
             		  (type == Common::EVENT_LBUTTONDOWN && event.kbd.hasFlags(Common::KBD_CTRL))) {
             	Common::KeyState kbd(Common::KEYCODE_i);
@@ -759,10 +759,10 @@ void GrimEngine::mainLoop() {
 						handlePause();
 						break;
 					} else if (event.kbd.keycode == Common::KEYCODE_h) {
-                        _hotspotManager->getName(_cursor);
+                        _hotspotManager->getName(_cursor->getPosition());
                         break;
                     } else if (_opMode > 0 && event.kbd.keycode == Common::KEYCODE_RETURN) {
-                        _hotspotManager->okKey();
+                        _hotspotManager->okKey(event.kbd.hasFlags(Common::KBD_SHIFT));
                         break;
                     } else if (event.kbd.keycode == Common::KEYCODE_LEFTBRACKET) {
                         _opMode = (_opMode+1) % 3;

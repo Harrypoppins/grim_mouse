@@ -932,7 +932,8 @@ struct luaL_reg grimMainOpcodes[] = {
     { "SwitchControlMode", LUA_OPCODE(Lua_V1, SwitchControlMode) },
     { "NotifyWalkOut", LUA_OPCODE(Lua_V1, NotifyWalkOut) },
     { "RegisterInventory", LUA_OPCODE(Lua_V1, RegisterInventory) },
-    { "MouseDown", LUA_OPCODE(Lua_V1, MouseDown) }
+    { "MouseDown", LUA_OPCODE(Lua_V1, MouseDown) },
+    { "InteractMode", LUA_OPCODE(Lua_V1, InteractMode) }
 };
 
 static struct luaL_reg grimTextOpcodes[] = {

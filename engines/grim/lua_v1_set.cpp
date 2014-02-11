@@ -467,6 +467,10 @@ void Lua_V1::TurnLightOn() {
 }
 
 // EXTENSIONS
+void Lua_V1::InteractMode() {
+    int mode = lua_getnumber(lua_getparam(1));
+    g_grim->getHotspotMan()->cutSceneMode(mode);
+}
 
 void Lua_V1::RegisterHotspot() {
     Math::Vector3d pos (lua_getnumber(lua_getparam(2)),
