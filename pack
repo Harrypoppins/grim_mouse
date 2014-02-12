@@ -1,5 +1,6 @@
 #!/bin/bash
 python convert_to_bin.py
 python patch_lua.py
-./mklab --grim dists/engine-data/patches/grim_pnc ~/grimdata/mouse.lab
+./mklab --grim dists/engine-data/patches/grim_pnc dists/engine-data/mouse.lab
+cp dists/engine-data/mouse.lab ~/grimdata/mouse.lab
 
