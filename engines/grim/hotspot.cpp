@@ -61,6 +61,13 @@ bool Polygon::contains(const Common::Point& pos) {
     return result;
 }
 
+Common::Point Polygon::center() {
+    Common::Point p(0,0);
+    for (size_t i=0; i<_pnts.size(); i++)
+        p += _pnts[i];
+    return Common::Point (p.x/_pnts.size(), p.y/_pnts.size());
+}
+
 void Polygon::move(const Common::Point& center) {
     Common::Point p(0,0);
     for (size_t i=0; i<_pnts.size(); i++)
@@ -70,7 +77,9 @@ void Polygon::move(const Common::Point& center) {
         _pnts[i] += offset;
 }
 
-HotspotMan::HotspotMan() : _selectMode (0), _initialized(false), _lastClick(0), _ctrlMode(0),_cutScene(0) {
+HotspotMan::HotspotMan() : 
+    _selectMode (0), _initialized(false), _lastClick(0), _ctrlMode(0),_cutScene(0),
+    _flashHS(false) {
 }
 
 HotspotMan::~HotspotMan() {
@@ -115,7 +124,17 @@ void HotspotMan::initialize() {
             _hotspots[setID].push_back(hs);
         }
     }
+    loadFlashBitmaps();
     _initialized = true;
+}
+
+void HotspotMan::loadFlashBitmaps() {
+    for(int i=0; i<8; i++) {
+        Common::String fn = Common::String::format("cursor%d_hl.tga",i);
+        _flashBitmaps[i] = Bitmap::create(fn.c_str());
+        _flashBitmaps[i]->_data->load();
+        _flashBitmaps[i]->_data->_hasTransparency = true;
+    }
 }
 
 int HotspotMan::addHotspot(const Common::String& name, const Math::Vector3d& pos, const Common::String& scene) {
@@ -161,7 +180,39 @@ void HotspotMan::disableAll() {
         _hotobject[i]._active = false;
 }
 
+void HotspotMan::flashHotspots() {
+    if (_cutScene > 0) return;
+    _flashStart = g_system->getMillis();
+    _flashHS = true;
+    update();
+}
+
 void HotspotMan::drawActive(int debug) {
+    if (_flashHS) {
+        unsigned int curTime = g_system->getMillis();
+        unsigned int delta = curTime - _flashStart;
+        if (delta >= 1700) _flashHS = false;
+        if ((delta % 900) < 450) {
+            int setup = g_grim->getCurrSet()->getSetup();
+            Common::Array<Hotspot>& hotspots = _hotspots[g_grim->getCurrSet()->getName()];
+            for (size_t i=0; i<hotspots.size(); i++) {
+                Hotspot& hs = hotspots[i];
+                if (hs._setup == setup && (hs._objId<=0 || _hotobject[hs._objId]._active)) {
+                    if ((_ctrlMode == Dialog && hs._type >= 20) ||
+                      (_ctrlMode == Special && hs._type >= 10 && hs._type < 20) ||
+                      (_ctrlMode == Linear && hs._type >= 10 && hs._type < 20) ||
+                      ((_ctrlMode == Normal || _ctrlMode == NoWalk) && hs._type < 10)) {
+                        int cu = hs._type % 10;
+                        if (hs._type == 3) cu = 2;
+                        if (hs._type == 4) cu = 1;
+                        Common::Point p = hs._region.center();
+                        _flashBitmaps[cu]->draw(p.x-15,p.y-15);
+                    }
+                }
+            }   
+        }
+    }
+
     if (_ctrlMode == Dialog) {
         /*for (int i=0; i<_rows; i++) {
             PrimitiveObject x;
@@ -529,10 +580,28 @@ void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int
                     return;
                 }
                 // normal mode
+                int gid = hs._objId;
                 if ((_ctrlMode != Normal && _ctrlMode != NoWalk) || 
-                    hs._type >= 10 || button==0) continue;
-                if (hs._objId>=0 && !_hotobject[hs._objId]._active) continue;
-                if (hs._type == 3) {
+                    hs._type >= 10 || hs._type == 3 || button==0) continue;
+                if (gid<=0 || !_hotobject[gid]._active) continue;
+                LuaObjects objects;
+                objects.add(button);
+                objects.add(gid);
+                int walk = doubleClick ? 2 : 1;
+                objects.add(walk);
+                LuaBase::instance()->callback("mouseCommand", objects);
+                return;
+            }
+        }
+        if (_ctrlMode != Normal && _ctrlMode != NoWalk)
+            return;
+
+        for (size_t i=0; i<hotspots.size(); i++) {
+            Hotspot& hs = hotspots[i];
+            if (hs._setup == setup && hs._region.contains(cursor) && !climbing) {
+                // normal mode walkbox
+                int gid = hs._objId;
+                if (hs._type == 3 && (gid <= 0 || _hotobject[gid]._active)) {
                     float* buf = new float[hs._path.size()*3];
                     LuaObjects objects;
                     objects.add(button);
@@ -545,17 +614,6 @@ void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int
                     objects.add(buf, hs._path.size()*3);
                     LuaBase::instance()->callback("mouseWalk", objects);
                     delete[] buf;
-                    return;
-                }
-
-                int gid = hs._objId;
-                if (gid >= 0) {
-                    LuaObjects objects;
-                    objects.add(button);
-                    objects.add(gid);
-                    int walk = doubleClick ? 2 : 1;
-                    objects.add(walk);
-                    LuaBase::instance()->callback("mouseCommand", objects);
                     return;
                 }
             }
@@ -605,7 +663,7 @@ void HotspotMan::hover(const Common::Point& pos) {
     _lastCursor = pos;
     Cursor* cursor = g_grim->getCursor();
 
-    if (_cutScene > 0) {
+    if (_cutScene > 0 && _ctrlMode != Dialog) {
         cursor->setCursor(7);
         return;
     }
@@ -743,7 +801,7 @@ bool HotspotMan::restoreState(SaveGame *savedState) {
     }
     savedState->endSection();
     _icons.clear();
-
+    loadFlashBitmaps();
     return true;
 }
 void HotspotMan::saveState(SaveGame *savedState) {

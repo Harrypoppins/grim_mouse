@@ -43,6 +43,7 @@ struct Polygon {
     void draw(const Color &col);
     bool contains(const Common::Point& pos);
     void move(const Common::Point& center);
+    Common::Point center();
 };
 
 struct HotObject {
@@ -98,10 +99,12 @@ public:
     int getCtrlMode() { return _ctrlMode; }
     void setAxis(const Math::Vector3d& a, float offset) { _axis = a; _offset=offset; }
     void cutSceneMode(int mode);
+    void flashHotspots();
 protected:
     void append_hotspot(const Common::String& id, const Common::String& name, int type);
     int inBox(const Common::Point& p);
     void freeClick(const Common::Point& cursor, int button, bool doubleClick, bool climbing);
+    void loadFlashBitmaps();
 
     // dialog support
     int _ctrlMode, _rows, _cols;
@@ -124,6 +127,11 @@ protected:
     Common::Point _lastCursor;
     int _cutScene;
     
+    // hotspot display
+    bool _flashHS;
+    unsigned int _flashStart;
+    Bitmap* _flashBitmaps[8];
+
     // hotspot editing
     int _selectMode, _lastSetup;
     Polygon _selectPoly;

@@ -271,6 +271,7 @@ protected:
     Cursor *_cursor;
     HotspotMan *_hotspotManager;
     int _opMode;
+    bool _devMode;
 };
 
 extern GrimEngine *g_grim;
