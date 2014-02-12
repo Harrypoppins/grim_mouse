@@ -2,6 +2,5 @@
 a=`pwd`
 cd ~/grimex/lua
 ./luac -o ../$1.lua $1.lua
-#cp ../$1.lua ~/code/residualvm/dists/engine-data/patches/grim_pnc/
 cd $a
 
