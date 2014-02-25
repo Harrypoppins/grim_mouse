@@ -128,8 +128,8 @@ public:
 	virtual void boot();
 	virtual void postRestoreHandle() { }
 
-	lua_Object queryVariable(const Common::String& name);
-	
+	int queryVariable(const Common::String& name, bool direct);
+
 	/**
 	 * Call a Lua function in the system table.
 	 *

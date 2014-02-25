@@ -138,41 +138,14 @@ void HotspotMan::loadFlashBitmaps() {
 }
 
 int HotspotMan::addHotspot(const Common::String& name, const Math::Vector3d& pos, const Common::String& scene) {
-    Common::String id = name, desc = name;
-    for (size_t i=1;i<id.size();i++) {
-        if (id[i]=='/') {
-            id.erase(i);
-            desc.erase(0,i+1);
-            break;                
-        }            
-    }
-    
-    int num=0;
-    for (size_t i=0; i<_hotobject.size(); i++) {
-        if (_hotobject[i]._id.hasPrefix(id))
-            num++;        
-    }
-    if (num>0)
-        id += Common::String::format("_%d",num);
-    
     HotObject hs;
-    hs._id = id;
-    hs._desc = desc;
     hs._pos = pos;
     hs._active = false;
     _hotobject.push_back(hs);
-    
-    // link to hotspots
-    for (HotDict::iterator it=_hotspots.begin(); it != _hotspots.end(); ++it) {
-        //Common::String s = it->_key;
-        Common::Array<Hotspot>& hotspots = it->_value;
-        for (size_t i=0; i<hotspots.size(); i++) {
-            if (hotspots[i]._id == hs._id)
-                hotspots[i]._objId = _hotobject.size() - 1;
-        }
-    }
 
-    return _hotobject.size() - 1;
+    int num = _hotobject.size() - 1;
+    renameHotspot(num, name);
+    return num;
 }
 
 void HotspotMan::disableAll() {
@@ -399,7 +372,9 @@ void HotspotMan::append_hotspot(const Common::String& id, const Common::String& 
     Common::String scene = get_scene_id();
     char fname[256];
     sprintf(fname, "/Users/tpfaff/code/residualvm/hs/%s.set.hot",scene.c_str());
+    warning("saving to %s",fname);
     FILE *fp = fopen(fname,"a");
+    if (!fp) error("cant open hostpot file");
     fprintf(fp, "%d %s \"%s\" %d %d",_lastSetup, id.c_str(), name.c_str(),type,_selectPath.size());
     for (size_t i=0; i<_selectPath.size();i++) {
         Math::Vector3d v = _selectPath[i];
@@ -502,9 +477,9 @@ double line_line_dist(const Math::Vector3d& x0, const Math::Vector3d& x1,
 }
 
 void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int debug) {
-    bool climbing = lua_getnumber(LuaBase::instance()->queryVariable("system.currentActor.is_climbing")) != 0;
+    bool climbing = LuaBase::instance()->queryVariable("system.currentActor.is_climbing", false) != 0;
     _lastCursor = cursor;
-    
+
     int button = 0;
     if (ev.type == Common::EVENT_LBUTTONDOWN)
         button = 1;
@@ -567,7 +542,6 @@ void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int
         for (size_t i=0; i<hotspots.size(); i++) {
             Hotspot& hs = hotspots[i];
             if (hs._setup == setup && hs._region.contains(cursor) && !climbing) {
-
                 // special mode calls
                 if ((_ctrlMode == Dialog && hs._type >= 20) ||
                     (_ctrlMode == Special && hs._type >= 10 && hs._type < 20) ||
@@ -593,38 +567,38 @@ void HotspotMan::event(const Common::Point& cursor, const Common::Event& ev, int
                 return;
             }
         }
-        if (_ctrlMode != Normal && _ctrlMode != NoWalk)
-            return;
+        if (_ctrlMode == Normal || _ctrlMode == NoWalk) {
 
-        for (size_t i=0; i<hotspots.size(); i++) {
-            Hotspot& hs = hotspots[i];
-            if (hs._setup == setup && hs._region.contains(cursor) && !climbing) {
-                // normal mode walkbox
-                int gid = hs._objId;
-                if (hs._type == 3 && (gid <= 0 || _hotobject[gid]._active)) {
-                    float* buf = new float[hs._path.size()*3];
-                    LuaObjects objects;
-                    objects.add(button);
-                    objects.add(doubleClick ? 1 : 0);
-                    for (int k=0; k<hs._path.size(); k++) {
-                        buf[3*k] = hs._path[k].x();
-                        buf[3*k+1] = hs._path[k].y();
-                        buf[3*k+2] = hs._path[k].z();
+            for (size_t i=0; i<hotspots.size(); i++) {
+                Hotspot& hs = hotspots[i];
+                if (hs._setup == setup && hs._region.contains(cursor) && !climbing) {
+                    // normal mode walkbox
+                    int gid = hs._objId;
+                    if (hs._type == 3 && (gid <= 0 || _hotobject[gid]._active)) {
+                        float* buf = new float[hs._path.size()*3];
+                        LuaObjects objects;
+                        objects.add(button);
+                        objects.add(doubleClick ? 1 : 0);
+                        for (int k=0; k<hs._path.size(); k++) {
+                            buf[3*k] = hs._path[k].x();
+                            buf[3*k+1] = hs._path[k].y();
+                            buf[3*k+2] = hs._path[k].z();
+                        }
+                        objects.add(buf, hs._path.size()*3);
+                        LuaBase::instance()->callback("mouseWalk", objects);
+                        delete[] buf;
+                        return;
                     }
-                    objects.add(buf, hs._path.size()*3);
-                    LuaBase::instance()->callback("mouseWalk", objects);
-                    delete[] buf;
-                    return;
                 }
             }
-        }
-        
-        if (_ctrlMode == Normal) 
-            freeClick(cursor,button,doubleClick,climbing);
-        else if (_ctrlMode == NoWalk) {
-            LuaObjects objects;
-            objects.add(button);
-            LuaBase::instance()->callback("mouseNowalk", objects);
+            
+            if (_ctrlMode == Normal) 
+                freeClick(cursor,button,doubleClick,climbing);
+            else if (_ctrlMode == NoWalk) {
+                LuaObjects objects;
+                objects.add(button);
+                LuaBase::instance()->callback("mouseNowalk", objects);
+            }
         }
     }
 
@@ -753,13 +727,10 @@ void HotspotMan::freeClick(const Common::Point& cursor, int button, bool doubleC
         }
         r0.z() -= 0.03; r1.z() -= 0.03;
     } 
-    if(!lua_isnil(LuaBase::instance()->queryVariable("manny.is_holding"))) {
-        LuaObjects objects;
-        objects.add(button);
-        objects.add(doubleClick ? 1 : 0);
-        objects.add(0,0);
-        LuaBase::instance()->callback("mouseWalk", objects);
-    }
+    LuaObjects objects;
+    objects.add(button);
+    objects.add(doubleClick ? 1 : 0);
+    LuaBase::instance()->callback("mouseUseInHand", objects);
 }   
 
 bool HotspotMan::restoreState(SaveGame *savedState) {
@@ -897,6 +868,38 @@ void HotspotMan::resetInventory() {
 void HotspotMan::cutSceneMode(int mode) {
     _cutScene = mode;
     hover(_lastCursor);
+}
+
+void HotspotMan::renameHotspot(int num, const Common::String& name) {
+    Common::String id = name, desc = name;
+    for (size_t i=1;i<id.size();i++) {
+        if (id[i]=='/') {
+            id.erase(i);
+            desc.erase(0,i+1);
+            break;                
+        }            
+    }
+    
+    int n=0;
+    for (size_t i=0; i<_hotobject.size(); i++) {
+        if (_hotobject[i]._id.hasPrefix(id))
+            n++;        
+    }
+    if (n>0)
+        id += Common::String::format("_%d",n);
+    _hotobject[num]._id = id;
+    _hotobject[num]._desc = desc;
+    //warning("renaming to %s / %s",id.c_str(),desc.c_str() );
+
+    // re-link to hotspots
+    for (HotDict::iterator it=_hotspots.begin(); it != _hotspots.end(); ++it) {
+        //Common::String s = it->_key;
+        Common::Array<Hotspot>& hotspots = it->_value;
+        for (size_t i=0; i<hotspots.size(); i++) {
+            if (hotspots[i]._id == id)
+                hotspots[i]._objId = num;
+        }
+    }
 }
 
 void HotspotMan::addInventory(const Common::String& id, const Common::String& pic) {

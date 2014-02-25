@@ -473,6 +473,9 @@ void GrimEngine::luaUpdate() {
 		_frameTime = 0;
 	}
 
+	int cutsceneMode = LuaBase::instance()->queryVariable("cutSceneLevel", true);
+    g_grim->getHotspotMan()->cutSceneMode(cutsceneMode);
+
 	LuaBase::instance()->update(_frameTime, _movieTime);
 
 	if (_currSet && (_mode == NormalMode || _mode == SmushMode)) {
@@ -959,6 +962,7 @@ void GrimEngine::savegameRestore() {
 		a->restoreCleanBuffer();
 	}
 	_cursor->reload();
+	_hotspotManager->updatePerspective();
 }
 
 void GrimEngine::restoreGRIM() {

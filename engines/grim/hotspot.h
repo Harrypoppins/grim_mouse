@@ -100,6 +100,7 @@ public:
     void setAxis(const Math::Vector3d& a, float offset) { _axis = a; _offset=offset; }
     void cutSceneMode(int mode);
     void flashHotspots();
+    void renameHotspot(int id, const Common::String& name);
 protected:
     void append_hotspot(const Common::String& id, const Common::String& name, int type);
     int inBox(const Common::Point& p);
